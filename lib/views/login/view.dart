@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_maps/core/consts/colors.dart';
 import 'package:google_maps/core/consts/strings.dart';
 import 'package:google_maps/logic/phone_auth/phone_auth_cubit.dart';
+import 'package:google_maps/views/login/widgets/intro_texts.dart';
 
 // ignore: must_be_immutable
 class LoginView extends StatelessWidget {
@@ -27,7 +28,7 @@ class LoginView extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildIntroTexts(),
+                const IntroTexts(),
                 const SizedBox(
                   height: 110,
                 ),
@@ -35,8 +36,59 @@ class LoginView extends StatelessWidget {
                 const SizedBox(
                   height: 60,
                 ),
-                _buildButton(context),
-                _buildPhoneNumberSubmittedBloc(),
+                BlocListener<PhoneAuthCubit, PhoneAuthState>(
+                  listenWhen: (previous, current) {
+                    return previous != current;
+                  },
+                  listener: (context, state) {
+                    if (state is PhoneAuthLoading) {
+                      showProgressIndicator(context);
+                    }
+                    if (state is PhoneAuthSubmitted) {
+                      Navigator.pop(context);
+                      Navigator.of(context).pushNamed(otpView, arguments: phoneNumber);
+                    }
+                    if (state is PhoneAuthError) {
+                      Navigator.pop(context);
+                      String error = (state).errorMsg;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(error),
+                          backgroundColor: Colors.black,
+                          duration: const Duration(seconds: 3),
+                          margin: const EdgeInsetsDirectional.symmetric(
+                            horizontal: 16,
+                            vertical: 10,
+                          ),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    }
+                  },
+                  child: Align(
+                    alignment: AlignmentDirectional.centerEnd,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        showProgressIndicator(context);
+                        _login(context);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        minimumSize: const Size(110, 50),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        backgroundColor: Colors.black,
+                      ),
+                      child: const Text(
+                        "Next",
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                )
               ],
             ),
           ),
@@ -44,33 +96,6 @@ class LoginView extends StatelessWidget {
       ),
     );
   }
-
-  Widget _buildIntroTexts() => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            "What is your phone number?",
-            style: TextStyle(
-              fontSize: 24,
-              color: Colors.black,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(
-            height: 30,
-          ),
-          Container(
-            margin: const EdgeInsetsDirectional.symmetric(horizontal: 2),
-            child: const Text(
-              "Please Enter Your Phone Number To Verify Your Account",
-              style: TextStyle(
-                color: Colors.black,
-                fontSize: 18,
-              ),
-            ),
-          ),
-        ],
-      );
 
   Widget _buildPhoneFormField() => Row(
         children: [
@@ -151,63 +176,6 @@ class LoginView extends StatelessWidget {
               String.fromCharCode(match.group(0)!.codeUnitAt(0) + 127397),
         );
     return flag;
-  }
-
-  Widget _buildButton(BuildContext context) => Align(
-        alignment: AlignmentDirectional.centerEnd,
-        child: ElevatedButton(
-          onPressed: () {
-            showProgressIndicator(context);
-            _login(context);
-          },
-          style: ElevatedButton.styleFrom(
-            minimumSize: const Size(110, 50),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(6),
-            ),
-            backgroundColor: Colors.black,
-          ),
-          child: const Text(
-            "Next",
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.white,
-            ),
-          ),
-        ),
-      );
-
-  Widget _buildPhoneNumberSubmittedBloc() {
-    return BlocListener<PhoneAuthCubit, PhoneAuthState>(
-      listenWhen: (previous, current) {
-        return previous != current;
-      },
-      listener: (context, state) {
-        if (state is PhoneAuthLoading) {
-          showProgressIndicator(context);
-        }
-        if (state is PhoneAuthSubmitted) {
-          Navigator.pop(context);
-          Navigator.of(context).pushNamed(otpView, arguments: phoneNumber);
-        }
-        if (state is PhoneAuthError) {
-          Navigator.pop(context);
-          String error = (state).errorMsg;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(error),
-              backgroundColor: Colors.black,
-              duration: const Duration(seconds: 3),
-              margin: const EdgeInsetsDirectional.symmetric(
-                horizontal: 16,
-                vertical: 10,
-              ),
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        }
-      },
-    );
   }
 
   void showProgressIndicator(BuildContext context) {

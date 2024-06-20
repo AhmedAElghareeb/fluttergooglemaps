@@ -34,8 +34,59 @@ class OtpView extends StatelessWidget {
               const SizedBox(
                 height: 60,
               ),
-              _buildButton(context),
-              _buildPhoneNumberVerifiedBloc(),
+              BlocListener<PhoneAuthCubit, PhoneAuthState>(
+                listenWhen: (previous, current) {
+                  return previous != current;
+                },
+                listener: (context, state) {
+                  if (state is PhoneAuthLoading) {
+                    showProgressIndicator(context);
+                  }
+                  if (state is PhoneAuthVerified) {
+                    Navigator.pop(context);
+                    Navigator.of(context)
+                        .pushNamed(mapView);
+                  }
+                  if (state is PhoneAuthError) {
+                    String error = (state).errorMsg;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(error),
+                        backgroundColor: Colors.black,
+                        duration: const Duration(seconds: 3),
+                        margin: const EdgeInsetsDirectional.symmetric(
+                          horizontal: 16,
+                          vertical: 10,
+                        ),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  }
+                },
+                child: Align(
+                  alignment: AlignmentDirectional.centerEnd,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      showProgressIndicator(context);
+                      _verify(context);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: const Size(110, 50),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      backgroundColor: Colors.black,
+                    ),
+                    child: const Text(
+                      "Verify",
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ],
           ),
         ),
@@ -69,10 +120,11 @@ class OtpView extends StatelessWidget {
                 ),
                 children: [
                   TextSpan(
-                      text: "$phoneNumber",
-                      style: const TextStyle(
-                        color: AppColors.blue,
-                      )),
+                    text: "$phoneNumber",
+                    style: const TextStyle(
+                      color: AppColors.blue,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -106,62 +158,6 @@ class OtpView extends StatelessWidget {
           otpCode = submittedCode;
         },
       );
-
-  Widget _buildButton(BuildContext context) => Align(
-        alignment: AlignmentDirectional.centerEnd,
-        child: ElevatedButton(
-          onPressed: () {
-            showProgressIndicator(context);
-            _verify(context);
-          },
-          style: ElevatedButton.styleFrom(
-            minimumSize: const Size(110, 50),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(6),
-            ),
-            backgroundColor: Colors.black,
-          ),
-          child: const Text(
-            "Verify",
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.white,
-            ),
-          ),
-        ),
-      );
-
-  _buildPhoneNumberVerifiedBloc() {
-    return BlocListener<PhoneAuthCubit, PhoneAuthState>(
-      listenWhen: (previous, current) {
-        return previous != current;
-      },
-      listener: (context, state) {
-        if (state is PhoneAuthLoading) {
-          showProgressIndicator(context);
-        }
-        if (state is PhoneAuthVerified) {
-          Navigator.pop(context);
-          Navigator.of(context).pushNamed(otpView, arguments: phoneNumber);
-        }
-        if (state is PhoneAuthError) {
-          String error = (state).errorMsg;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(error),
-              backgroundColor: Colors.black,
-              duration: const Duration(seconds: 3),
-              margin: const EdgeInsetsDirectional.symmetric(
-                horizontal: 16,
-                vertical: 10,
-              ),
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        }
-      },
-    );
-  }
 
   void showProgressIndicator(BuildContext context) {
     AlertDialog alertDialog = const AlertDialog(

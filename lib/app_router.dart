@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_maps/core/consts/strings.dart';
+import 'package:google_maps/data/api_call/places.dart';
+import 'package:google_maps/data/repo/map_repo.dart';
+import 'package:google_maps/logic/map/cubit.dart';
 import 'package:google_maps/logic/phone_auth/phone_auth_cubit.dart';
 import 'package:google_maps/views/login/view.dart';
 import 'package:google_maps/views/map/view.dart';
@@ -32,8 +35,15 @@ class AppRouter {
         );
       case mapView:
         return MaterialPageRoute(
-          builder: (_) => const MapView(),
+          builder: (_) => BlocProvider(
+              create: (context) => MapCubit(
+                    MapRepo(
+                      Places(),
+                    ),
+                  ),
+              child: const MapView()),
         );
     }
+    return null;
   }
 }

@@ -1,0 +1,47 @@
+import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
+import 'package:google_maps/core/consts/strings.dart';
+
+class Places {
+  late Dio dio;
+
+  Places() {
+    BaseOptions options = BaseOptions(
+      connectTimeout: const Duration(
+        seconds: 20,
+      ),
+      receiveTimeout: const Duration(seconds: 20),
+      receiveDataWhenStatusError: true,
+    );
+
+    dio = Dio(options);
+  }
+
+  Future<List<dynamic>> getSuggestions(
+      String place, String sessionToken) async {
+    try {
+      Response response = await dio.get(
+        suggestionsBaseUrl,
+        queryParameters: {
+          'input': place,
+          'types': 'address',
+          'components': 'country:eg',
+          'key': googleAPIKey,
+          'sessiontoken': sessionToken,
+        },
+      );
+      if (kDebugMode) {
+        print("Response is: ${response.data['predictions']}");
+      }
+      if (kDebugMode) {
+        print("Code of Status: ${response.statusCode}");
+      }
+      return response.data['predictions'];
+    } catch (error) {
+      if (kDebugMode) {
+        print("Error is: ${error.toString()}");
+      }
+      return [];
+    }
+  }
+}

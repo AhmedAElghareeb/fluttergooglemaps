@@ -117,14 +117,14 @@ class SideDrawer extends StatelessWidget {
           buildDrawerListItem(
               leadingIcon: Icons.history,
               title: "Places History",
-              onTap: () {}),
+              onTap: () {},
+          ),
           buildDrawerListItemsDivider(),
           buildDrawerListItem(leadingIcon: Icons.settings, title: "Settings"),
           buildDrawerListItemsDivider(),
           buildDrawerListItem(leadingIcon: Icons.help, title: "Help"),
           buildDrawerListItemsDivider(),
           buildLogoutBlocProvider(context),
-          // buildDrawerListItem(leadingIcon: Icons.exit_to_app, title: "Log out"),
         ],
       ),
     );

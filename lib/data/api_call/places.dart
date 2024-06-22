@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_maps/core/consts/strings.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 class Places {
   late Dio dio;
@@ -64,9 +65,31 @@ class Places {
       }
       return response.data;
     } catch (error) {
+      return Future.error(
+        "Place Location Error : ",
+        StackTrace.fromString("This is its Trace"),
+      );
+    }
+  }
+
+  Future<dynamic> getDirections(LatLng origin, LatLng destination) async {
+    try {
+      Response response = await dio.get(
+        directionsBaseUrl,
+        queryParameters: {
+          'origin': '${origin.latitude},${origin.longitude}',
+          'destination': '${destination.latitude},${destination.longitude}',
+          'key': googleAPIKey,
+        },
+      );
       if (kDebugMode) {
-        print("Error is: ${error.toString()}");
+        print("Response is: ${response.data}");
       }
+      if (kDebugMode) {
+        print("Code of Status: ${response.statusCode}");
+      }
+      return response.data;
+    } catch (error) {
       return Future.error(
         "Place Location Error : ",
         StackTrace.fromString("This is its Trace"),

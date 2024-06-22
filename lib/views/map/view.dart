@@ -4,10 +4,12 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps/core/consts/colors.dart';
 import 'package:google_maps/core/helpers/location.dart';
+import 'package:google_maps/data/models/directions.dart';
 import 'package:google_maps/data/models/place.dart';
 import 'package:google_maps/data/models/place_suggestions.dart';
 import 'package:google_maps/logic/map/cubit.dart';
 import 'package:google_maps/logic/map/states.dart';
+import 'package:google_maps/views/map/widgets/distance_and_time.dart';
 import 'package:google_maps/views/map/widgets/place_item.dart';
 import 'package:google_maps/views/map/widgets/side_drawer.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -31,6 +33,15 @@ class _MapViewState extends State<MapView> {
   late Marker searchedPlaceMarker;
   late Marker currentLocationMarker;
   late CameraPosition goToSearchedForPlace;
+
+  //variables for directions
+  PlaceDirections? placeDirections;
+  var progressIndicator = false;
+  late List<LatLng> polyLinePoints;
+  var isSearchedPlaceMarkerClicked = false;
+  var isTimeAndDistanceVisible = false;
+  late String time;
+  late String distance;
 
   void buildNewCameraPosition() {
     goToSearchedForPlace = CameraPosition(
@@ -94,6 +105,16 @@ class _MapViewState extends State<MapView> {
       onMapCreated: (GoogleMapController controller) {
         _controller.complete(controller);
       },
+      polylines: placeDirections != null
+          ? {
+              Polyline(
+                polylineId: const PolylineId("First"),
+                color: AppColors.blue,
+                width: 5,
+                points: polyLinePoints,
+              ),
+            }
+          : {},
     );
   }
 
@@ -130,10 +151,16 @@ class _MapViewState extends State<MapView> {
       openAxisAlignment: 0.0,
       width: isPortrait ? 600 : 500,
       debounceDelay: const Duration(milliseconds: 500),
+      progress: progressIndicator,
       onQueryChanged: (query) {
         getPlacesSuggestions(query);
       },
-      onFocusChanged: (_) {},
+      onFocusChanged: (_) {
+        //hide distance and time row
+        setState(() {
+          isTimeAndDistanceVisible = false;
+        });
+      },
       transition: CircularFloatingSearchBarTransition(),
       actions: [
         FloatingSearchBarAction(
@@ -153,11 +180,35 @@ class _MapViewState extends State<MapView> {
             children: [
               buildPlacesListBloc(),
               buildPlaceDetailsBloc(),
+              buildDirectionsBloc(),
             ],
           ),
         );
       },
     );
+  }
+
+  Widget buildDirectionsBloc() {
+    return BlocListener<MapCubit, MapStates>(
+      listener: (context, state) {
+        if (state is PlaceDirectionsLoaded) {
+          placeDirections = state.placeDirections;
+          getPolyLinePoints();
+        }
+      },
+      child: const SizedBox(),
+    );
+  }
+
+  void getPolyLinePoints() {
+    polyLinePoints = placeDirections!.polyLinePoints
+        .map(
+          (e) => LatLng(
+            e.latitude,
+            e.longitude,
+          ),
+        )
+        .toList();
   }
 
   Widget buildPlacesListBloc() {
@@ -175,6 +226,8 @@ class _MapViewState extends State<MapView> {
                   placeSuggestions = places[index];
                   controller.close();
                   getSelectedPlaceLocation();
+                  polyLinePoints.clear();
+                  removeAllMarkersAndUpdateUi();
                 },
                 child: PlaceItem(
                   suggestions: places[index],
@@ -192,15 +245,35 @@ class _MapViewState extends State<MapView> {
     );
   }
 
+  void removeAllMarkersAndUpdateUi() {
+    setState(() {
+      markers.clear();
+    });
+  }
+
   Widget buildPlaceDetailsBloc() {
     return BlocListener<MapCubit, MapStates>(
       listener: (context, state) {
         if (state is PlaceDetailsLocationLoaded) {
           selectedPlace = state.placeDetails;
           goToMySearchedLocation();
+          getDirections();
         }
       },
       child: const SizedBox(),
+    );
+  }
+
+  void getDirections() {
+    BlocProvider.of<MapCubit>(context).emitPlaceDirections(
+      LatLng(
+        position!.latitude,
+        position!.longitude,
+      ),
+      LatLng(
+        selectedPlace.result.geometry.location.lat,
+        selectedPlace.result.geometry.location.lng,
+      ),
     );
   }
 
@@ -218,6 +291,11 @@ class _MapViewState extends State<MapView> {
       position: goToSearchedForPlace.target,
       onTap: () {
         showSelectedPlaceDetailsAndMarker();
+        //show Time and Distance
+        setState(() {
+          isSearchedPlaceMarkerClicked = true;
+          isTimeAndDistanceVisible = true;
+        });
       },
       infoWindow: InfoWindow(
         title: placeSuggestions.description,
@@ -241,7 +319,7 @@ class _MapViewState extends State<MapView> {
         title: "Your Current Location",
       ),
       icon: BitmapDescriptor.defaultMarkerWithHue(
-        BitmapDescriptor.hueGreen,
+        BitmapDescriptor.hueRed,
       ),
       markerId: const MarkerId("1"),
     );
@@ -275,11 +353,14 @@ class _MapViewState extends State<MapView> {
       child: Scaffold(
         drawer: SideDrawer(),
         floatingActionButton: Container(
-          margin: const EdgeInsetsDirectional.fromSTEB(0, 0, 8, 8),
-          child: FloatingActionButton(
-            onPressed: _goToMyLocation,
-            backgroundColor: AppColors.blue,
-            child: const Icon(Icons.place, color: Colors.white),
+          margin: const EdgeInsetsDirectional.fromSTEB(35, 0, 0, 1),
+          child: Align(
+            alignment: AlignmentDirectional.bottomStart,
+            child: FloatingActionButton(
+              onPressed: _goToMyLocation,
+              backgroundColor: AppColors.blue,
+              child: const Icon(Icons.place, color: Colors.white),
+            ),
           ),
         ),
         body: Stack(
@@ -293,6 +374,12 @@ class _MapViewState extends State<MapView> {
                     ),
                   ),
             buildSearchBar(),
+            isSearchedPlaceMarkerClicked
+                ? DistanceAndTime(
+                    isTimeAndDistanceVisible: isTimeAndDistanceVisible,
+                    placeDirections: placeDirections,
+                  )
+                : const SizedBox(),
           ],
         ),
       ),

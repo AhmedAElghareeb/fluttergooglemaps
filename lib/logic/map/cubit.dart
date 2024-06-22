@@ -19,4 +19,17 @@ class MapCubit extends Cubit<MapStates> {
       );
     });
   }
+
+  void emitPlaceLocation(String placeId, String sessionToken) {
+    mapRepo
+        .getPlaceLocation(
+      placeId,
+      sessionToken,
+    )
+        .then((place) {
+      emit(
+        PlaceDetailsLocationLoaded(place),
+      );
+    });
+  }
 }

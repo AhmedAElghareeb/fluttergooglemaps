@@ -1,10 +1,10 @@
 import 'dart:async';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps/core/consts/colors.dart';
 import 'package:google_maps/core/helpers/location.dart';
+import 'package:google_maps/data/models/place.dart';
 import 'package:google_maps/data/models/place_suggestions.dart';
 import 'package:google_maps/logic/map/cubit.dart';
 import 'package:google_maps/logic/map/states.dart';
@@ -23,6 +23,26 @@ class MapView extends StatefulWidget {
 
 class _MapViewState extends State<MapView> {
   List<dynamic> places = [];
+
+  //variables for getPlaceLocation
+  Set<Marker> markers = {};
+  late PlaceSuggestions placeSuggestions;
+  late PlaceDetails selectedPlace;
+  late Marker searchedPlaceMarker;
+  late Marker currentLocationMarker;
+  late CameraPosition goToSearchedForPlace;
+
+  void buildNewCameraPosition() {
+    goToSearchedForPlace = CameraPosition(
+      bearing: 0,
+      tilt: 0,
+      target: LatLng(
+        selectedPlace.result.geometry.location.lat,
+        selectedPlace.result.geometry.location.lng,
+      ),
+      zoom: 12,
+    );
+  }
 
   //search ctrl
   FloatingSearchBarController controller = FloatingSearchBarController();
@@ -69,6 +89,7 @@ class _MapViewState extends State<MapView> {
       //zoom controls
       zoomControlsEnabled: false,
       myLocationButtonEnabled: false,
+      markers: markers,
       initialCameraPosition: _myCurrentLocation,
       onMapCreated: (GoogleMapController controller) {
         _controller.complete(controller);
@@ -130,34 +151,113 @@ class _MapViewState extends State<MapView> {
             mainAxisAlignment: MainAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              BlocBuilder<MapCubit, MapStates>(
-                builder: (context, state) {
-                  if (state is PlacesLoaded) {
-                    places = state.places;
-
-                    if (places.isNotEmpty) {
-                      return ListView.builder(
-                        shrinkWrap: true,
-                        itemBuilder: (context, index) => InkWell(
-                          onTap: () {},
-                          child: PlaceItem(
-                            suggestions: places[index],
-                          ),
-                        ),
-                        itemCount: places.length,
-                      );
-                    } else {
-                      return const SizedBox();
-                    }
-                  } else {
-                    return const SizedBox();
-                  }
-                },
-              ),
+              buildPlacesListBloc(),
+              buildPlaceDetailsBloc(),
             ],
           ),
         );
       },
+    );
+  }
+
+  Widget buildPlacesListBloc() {
+    return BlocBuilder<MapCubit, MapStates>(
+      builder: (context, state) {
+        if (state is PlacesLoaded) {
+          places = state.places;
+
+          if (places.isNotEmpty) {
+            return ListView.builder(
+              shrinkWrap: true,
+              physics: const ClampingScrollPhysics(),
+              itemBuilder: (context, index) => InkWell(
+                onTap: () async {
+                  placeSuggestions = places[index];
+                  controller.close();
+                  getSelectedPlaceLocation();
+                },
+                child: PlaceItem(
+                  suggestions: places[index],
+                ),
+              ),
+              itemCount: places.length,
+            );
+          } else {
+            return const SizedBox();
+          }
+        } else {
+          return const SizedBox();
+        }
+      },
+    );
+  }
+
+  Widget buildPlaceDetailsBloc() {
+    return BlocListener<MapCubit, MapStates>(
+      listener: (context, state) {
+        if (state is PlaceDetailsLocationLoaded) {
+          selectedPlace = state.placeDetails;
+          goToMySearchedLocation();
+        }
+      },
+      child: const SizedBox(),
+    );
+  }
+
+  Future<void> goToMySearchedLocation() async {
+    buildNewCameraPosition();
+    final GoogleMapController ctrll = await _controller.future;
+    ctrll.animateCamera(
+      CameraUpdate.newCameraPosition(goToSearchedForPlace),
+    );
+    showSearchedPlaceMarker();
+  }
+
+  void showSearchedPlaceMarker() {
+    searchedPlaceMarker = Marker(
+      position: goToSearchedForPlace.target,
+      onTap: () {
+        showSelectedPlaceDetailsAndMarker();
+      },
+      infoWindow: InfoWindow(
+        title: placeSuggestions.description,
+      ),
+      icon: BitmapDescriptor.defaultMarkerWithHue(
+        BitmapDescriptor.hueGreen,
+      ),
+      markerId: const MarkerId("2"),
+    );
+    addMarkerToMarkersAndUpdateUi(searchedPlaceMarker);
+  }
+
+  void showSelectedPlaceDetailsAndMarker() {
+    currentLocationMarker = Marker(
+      position: LatLng(
+        position!.latitude,
+        position!.longitude,
+      ),
+      onTap: () {},
+      infoWindow: const InfoWindow(
+        title: "Your Current Location",
+      ),
+      icon: BitmapDescriptor.defaultMarkerWithHue(
+        BitmapDescriptor.hueGreen,
+      ),
+      markerId: const MarkerId("1"),
+    );
+    addMarkerToMarkersAndUpdateUi(currentLocationMarker);
+  }
+
+  void addMarkerToMarkersAndUpdateUi(Marker marker) {
+    markers.add(marker);
+    setState(() {});
+  }
+
+  void getSelectedPlaceLocation() {
+    final sessionToken = const Uuid().v4();
+    BlocProvider.of<MapCubit>(context).emitPlaceLocation(
+      placeSuggestions.placeId,
+      sessionToken,
     );
   }
 
@@ -197,11 +297,5 @@ class _MapViewState extends State<MapView> {
         ),
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
-    controller.close();
   }
 }

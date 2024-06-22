@@ -1,4 +1,5 @@
 import 'package:google_maps/data/api_call/places.dart';
+import 'package:google_maps/data/models/place.dart';
 import 'package:google_maps/data/models/place_suggestions.dart';
 
 class MapRepo {
@@ -15,5 +16,14 @@ class MapRepo {
     return suggestions
         .map((suggest) => PlaceSuggestions.fromJson(suggest))
         .toList();
+  }
+
+  Future<PlaceDetails> getPlaceLocation(
+      String placeId, String sessionToken) async {
+    final placeDetails = await places.getPlaceLocation(
+      placeId,
+      sessionToken,
+    );
+    return PlaceDetails.fromJson(placeDetails);
   }
 }
